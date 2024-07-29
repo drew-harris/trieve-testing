@@ -28,7 +28,7 @@ for (let i = 0; i < 20; i++) {
       position: 2,
       clicked_chunk_id:
         results.chunks[Math.min(i, results.chunks.length - 1)].chunk.id,
-      reqeust_id: results.id as string,
+      request_id: results.id as string,
     },
     trDataset: DATASET_ID,
   });

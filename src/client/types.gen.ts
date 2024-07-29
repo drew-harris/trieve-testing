@@ -181,7 +181,7 @@ export type CTRDataRequestBody = {
     /**
      * The request id for the CTR data
      */
-    reqeust_id: string;
+    request_id: string;
 };
 
 export type CTRRecommendationsWithClicksResponse = {
