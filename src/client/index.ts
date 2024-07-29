@@ -65,10 +65,10 @@ interface TrieveOpts {
 }
 
 export class Trieve {
-  apiKey: string;
-  datasetId?: string;
-  baseUrl: string;
-  debug: boolean = false;
+  private apiKey: string;
+  private datasetId?: string;
+  private baseUrl: string;
+  private debug: boolean = false;
 
   constructor(opts: TrieveOpts) {
     this.apiKey = opts.apiKey;
