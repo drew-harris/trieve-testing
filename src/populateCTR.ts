@@ -21,8 +21,7 @@ for (let i = 0; i < 20; i++) {
 
   console.log(results);
 
-  // Click on the first result
-
+  // Click on a result
   const response = await trieve.fetch("/api/analytics/ctr", "put", {
     requestBody: {
       ctr_type: "search",
