@@ -106,6 +106,8 @@ export class Trieve {
           headers["TR-Dataset"] = value;
         } else if (key === "trOrganization" && typeof value === "string") {
           headers["TR-Organization"] = value;
+        } else if (key === "xApiVersion" && typeof value === "string") {
+          headers["X-API-VERSION"] = value;
         } else if (key !== "requestBody" && typeof value === "string") {
           pathParams[key] = value;
         }
