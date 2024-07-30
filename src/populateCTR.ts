@@ -1,5 +1,8 @@
 import { Trieve } from "./client/index";
-import type { SearchResponseBody } from "./client/types.gen";
+import type {
+  CTRSearchQueryWithClicksResponse,
+  SearchResponseBody,
+} from "./client/types.gen";
 
 const trieve = new Trieve({
   apiKey: "admin",
@@ -12,7 +15,7 @@ const DATASET_ID = "c65a2dd7-298e-48e6-ac90-e336ccbbe74f";
 for (let i = 0; i < 20; i++) {
   const results = (await trieve.fetch("/api/chunk/search", "post", {
     requestBody: {
-      query: "lsij",
+      query: "listen",
       search_type: "fulltext",
     },
     xApiVersion: "V2",
@@ -36,11 +39,11 @@ for (let i = 0; i < 20; i++) {
   console.log(response);
 }
 
-const ctrResults = await trieve.fetch("/api/analytics/ctr", "post", {
+const ctrResults = (await trieve.fetch("/api/analytics/ctr", "post", {
   requestBody: {
-    type: "searches_with_clicks",
+    type: "recommendations_with_clicks",
   },
   trDataset: DATASET_ID,
-});
+})) as CTRSearchQueryWithClicksResponse;
 
-console.log(ctrResults);
+console.log(ctrResults.queries[0].query);
