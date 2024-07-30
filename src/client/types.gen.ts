@@ -49,32 +49,7 @@ export type AutocompleteReqPayload = {
      */
     extend_results?: boolean | null;
     filters?: (ChunkFilter) | null;
-    /**
-     * Set highlight_delimiters to a list of strings to use as delimiters for highlighting. If not specified, this defaults to ["?", ",", ".", "!"]. These are the characters that will be used to split the chunk_html into splits for highlighting.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * Set highlight_max_length to control the maximum number of tokens (typically whitespace separated strings, but sometimes also word stems) which can be present within a single highlight. If not specified, this defaults to 8. This is useful to shorten large splits which may have low scores due to length compared to the query. Set to something very large like 100 to highlight entire splits.
-     */
-    highlight_max_length?: number | null;
-    /**
-     * Set highlight_max_num to control the maximum number of highlights per chunk. If not specified, this defaults to 3. It may be less than 3 if no snippets score above the highlight_threshold.
-     */
-    highlight_max_num?: number | null;
-    /**
-     * Set highlight_results to false for a slight latency improvement (1-10ms). If not specified, this defaults to true. This will add `<b><mark>` tags to the chunk_html of the chunks to highlight matching splits and return the highlights on each scored chunk in the response.
-     */
-    highlight_results?: boolean | null;
-    highlight_strategy?: (HighlightStrategy) | null;
-    /**
-     * Set highlight_threshold to a lower or higher value to adjust the sensitivity of the highlights applied to the chunk html. If not specified, this defaults to 0.8. The range is 0.0 to 1.0.
-     */
-    highlight_threshold?: number | null;
-    /**
-     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once.
-     */
-    highlight_window?: number | null;
-    location_bias?: (GeoInfoWithBias) | null;
+    highlight_options?: (HighlightOptions) | null;
     /**
      * Page size is the number of chunks to fetch. This can be used to fetch more than 10 chunks at a time.
      */
@@ -83,7 +58,10 @@ export type AutocompleteReqPayload = {
      * Query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
      */
     query: string;
-    rerank_by?: (ReRankOptions) | null;
+    /**
+     * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be preserved.
+     */
+    remove_stop_words?: boolean | null;
     /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
@@ -93,21 +71,11 @@ export type AutocompleteReqPayload = {
      * Set slim_chunks to true to avoid returning the content and chunk_html of the chunks. This is useful for when you want to reduce amount of data over the wire for latency improvement (typically 10-50ms). Default is false.
      */
     slim_chunks?: boolean | null;
-    sort_by?: (QdrantSortBy) | null;
-    /**
-     * Tag weights is a JSON object which can be used to boost the ranking of chunks with certain tags. This is useful for when you want to be able to bias towards chunks with a certain tag on the fly. The keys are the tag names and the values are the weights.
-     */
-    tag_weights?: {
-        [key: string]: (number);
-    } | null;
+    sort_options?: (SortOptions) | null;
     /**
      * If true, quoted and - prefixed words will be parsed from the queries and used as required and negated words respectively. Default is false.
      */
     use_quote_negated_terms?: boolean | null;
-    /**
-     * Set use_weights to true to use the weights of the chunks in the result set in order to sort them. If not specified, this defaults to true.
-     */
-    use_weights?: boolean | null;
 };
 
 export type BatchQueuedChunkResponse = {
@@ -116,20 +84,6 @@ export type BatchQueuedChunkResponse = {
      * The current position the last access item is in the queue
      */
     pos_in_queue: number;
-};
-
-/**
- * Boost phrase is useful for when you want to boost certain phrases in the fulltext (SPLADE) and BM25 search results. I.e. making sure that the listing for AirBNB itself ranks higher than companies who make software for AirBNB hosts by boosting the in-document-frequency of the AirBNB token (AKA word) for its official listing. Conceptually it multiples the in-document-importance second value in the tuples of the SPLADE or BM25 sparse vector of the chunk_html innerText for all tokens present in the boost phrase by the boost factor like so: (token, in-document-importance) -> (token, in-document-importance*boost_factor).
- */
-export type BoostPhrase = {
-    /**
-     * Amount to multiplicatevly increase the frequency of the tokens in the phrase by
-     */
-    boost_factor: number;
-    /**
-     * The phrase to boost in the fulltext document frequency index
-     */
-    phrase: string;
 };
 
 export type CTRAnalytics = {
@@ -207,6 +161,9 @@ export type ChatMessageProxy = {
     role: RoleProxy;
 };
 
+/**
+ * Filters is a JSON object which can be used to filter chunks. This is useful for when you want to filter chunks by arbitrary metadata. Unlike with tag filtering, there is a performance hit for filtering on metadata.
+ */
 export type ChunkFilter = {
     /**
      * JOSNB prefilter tells the server to perform a full scan over the metadata JSONB column instead of using the filtered HNSW. Datasets on the enterprise plan with custom metadata indices will perform better with the filtered HNSW instead. When false, the server will use the filtered HNSW index to filter chunks. When true, the server will perform a full scan over the metadata JSONB column to filter chunks. Default is true.
@@ -305,7 +262,6 @@ export type ChunkMetadataWithScore = {
 };
 
 export type ChunkReqPayload = {
-    boost_phrase?: (BoostPhrase) | null;
     /**
      * HTML content of the chunk. This can also be plaintext. The innerText of the HTML will be used to create the embedding vector. The point of using HTML is for convienience, as some users have applications where users submit HTML content.
      */
@@ -314,7 +270,7 @@ export type ChunkReqPayload = {
      * Convert HTML to raw text before processing to avoid adding noise to the vector embeddings. By default this is true. If you are using HTML content that you want to be included in the vector embeddings, set this to false.
      */
     convert_html_to_text?: boolean | null;
-    distance_phrase?: (DistancePhrase) | null;
+    fulltext_boost?: (FullTextBoost) | null;
     /**
      * Group ids are the Trieve generated ids of the groups that the chunk should be placed into. This is useful for when you want to create a chunk and add it to a group or multiple groups in one request. Groups with these Trieve generated ids must be created first, it cannot be arbitrarily created through this route.
      */
@@ -340,6 +296,7 @@ export type ChunkReqPayload = {
      * Num value is an arbitrary numerical value that can be used to filter chunks. This is useful for when you want to filter chunks by numerical value. There is no performance hit for filtering on num_value.
      */
     num_value?: number | null;
+    semantic_boost?: (SemanticBoost) | null;
     /**
      * Split avg is a boolean which tells the server to split the text in the chunk_html into smaller chunks and average their resulting vectors. This is useful for when you want to create a chunk from a large piece of text and want to split it into smaller chunks to create a more fuzzy average dense vector. The sparse vector will be generated normally with no averaging. By default this is false.
      */
@@ -451,30 +408,12 @@ export type CreateDatasetRequest = {
 
 export type CreateMessageReqPayload = {
     /**
-     * Completion first decides whether the stream should contain the stream of the completion response or the chunks first. Default is false. Keep in mind that || is used to separate the chunks from the completion response. If || is in the completion then you may want to split on ||{ instead.
-     */
-    completion_first?: boolean | null;
-    /**
      * If concat user messages query is set to true, all of the user messages in the topic will be concatenated together and used as the search query. If not specified, this defaults to false. Default is false.
      */
     concat_user_messages_query?: boolean | null;
     filters?: (ChunkFilter) | null;
-    /**
-     * Frequency penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim. Default is 0.7.
-     */
-    frequency_penalty?: number | null;
-    /**
-     * The delimiters to use for highlighting the citations. If this is not included, the default delimiters will be used. Default is `[".", "!", "?", "\n", "\t", ","]`.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * Set highlight_results to false for a slight latency improvement (1-10ms). If not specified, this defaults to true. This will add `<b><mark>` tags to the chunk_html of the chunks to highlight matching splits and return the highlights on each scored chunk in the response.
-     */
-    highlight_results?: boolean | null;
-    /**
-     * The maximum number of tokens to generate in the chat completion. Default is None.
-     */
-    max_tokens?: number | null;
+    highlight_options?: (HighlightOptions) | null;
+    llm_options?: (LLMOptions) | null;
     /**
      * The content of the user message to attach to the topic and then generate an assistant message in response to.
      */
@@ -484,10 +423,6 @@ export type CreateMessageReqPayload = {
      */
     page_size?: number | null;
     /**
-     * Presence penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics. Default is 0.7.
-     */
-    presence_penalty?: number | null;
-    /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
     score_threshold?: number | null;
@@ -496,22 +431,6 @@ export type CreateMessageReqPayload = {
      */
     search_query?: string | null;
     search_type?: (SearchMethod) | null;
-    /**
-     * Stop tokens are up to 4 sequences where the API will stop generating further tokens. Default is None.
-     */
-    stop_tokens?: Array<(string)> | null;
-    /**
-     * Whether or not to stream the response. If this is set to true or not included, the response will be a stream. If this is set to false, the response will be a normal JSON response. Default is true.
-     */
-    stream_response?: boolean | null;
-    /**
-     * Optionally, override the system prompt in dataset server settings.
-     */
-    system_prompt?: string | null;
-    /**
-     * What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Default is 0.5.
-     */
-    temperature?: number | null;
     /**
      * The ID of the topic to attach the message to.
      */
@@ -639,46 +558,14 @@ export type DeprecatedSearchOverGroupsResponseBody = {
     total_chunk_pages: number;
 };
 
-/**
- * Distance phrase is useful for moving the embedding vector of the chunk in the direction of the distance phrase. I.e. you can push a chunk with a chunk_html of "iphone" 25% closer to the term "flagship" by using the distance phrase "flagship" and a distance factor of 0.25. Conceptually it's drawing a line (euclidean/L2 distance) between the vector for the innerText of the chunk_html and distance_phrase then moving the vector of the chunk_html distance_factor*L2Distance closer to or away from the distance_phrase point along the line between the two points.
- */
-export type DistancePhrase = {
-    /**
-     * Amount to multiplicatevly increase the frequency of the tokens in the phrase by
-     */
-    distance_factor: number;
-    /**
-     * The phrase to boost in the fulltext document frequency index
-     */
-    phrase: string;
-};
-
 export type EditMessageReqPayload = {
-    /**
-     * Completion first decides whether the stream should contain the stream of the completion response or the chunks first. Default is false. Keep in mind that || is used to separate the chunks from the completion response. If || is in the completion then you may want to split on ||{ instead.
-     */
-    completion_first?: boolean | null;
     /**
      * If concat user messages query is set to true, all of the user messages in the topic will be concatenated together and used as the search query. If not specified, this defaults to false. Default is false.
      */
     concat_user_messages_query?: boolean | null;
     filters?: (ChunkFilter) | null;
-    /**
-     * Frequency penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim. Default is 0.7.
-     */
-    frequency_penalty?: number | null;
-    /**
-     * Whether or not to highlight the citations in the response. If this is set to true or not included, the citations will be highlighted. If this is set to false, the citations will not be highlighted. Default is true.
-     */
-    highlight_citations?: boolean | null;
-    /**
-     * The delimiters to use for highlighting the citations. If this is not included, the default delimiters will be used. Default is `[".", "!", "?", "\n", "\t", ","]`.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * The maximum number of tokens to generate in the chat completion.
-     */
-    max_tokens?: number | null;
+    highlight_options?: (HighlightOptions) | null;
+    llm_options?: (LLMOptions) | null;
     /**
      * The sort order of the message to edit.
      */
@@ -692,10 +579,6 @@ export type EditMessageReqPayload = {
      */
     page_size?: number | null;
     /**
-     * Presence penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
-     */
-    presence_penalty?: number | null;
-    /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
     score_threshold?: number | null;
@@ -704,22 +587,6 @@ export type EditMessageReqPayload = {
      */
     search_query?: string | null;
     search_type?: (SearchMethod) | null;
-    /**
-     * Stop tokens are up to 4 sequences where the API will stop generating further tokens.
-     */
-    stop_tokens?: Array<(string)> | null;
-    /**
-     * Whether or not to stream the response. If this is set to true or not included, the response will be a stream. If this is set to false, the response will be a normal JSON response. Default is true.
-     */
-    stream_response?: boolean | null;
-    /**
-     * Optionally, override the system prompt in dataset server settings.
-     */
-    system_prompt?: string | null;
-    /**
-     * What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Default is 0.7.
-     */
-    temperature?: number | null;
     /**
      * The id of the topic to edit the message at the given sort order for.
      */
@@ -789,6 +656,20 @@ export type FileDTO = {
     updated_at: string;
 };
 
+/**
+ * Boost phrase is useful for when you want to boost certain phrases in the fulltext (SPLADE) and BM25 search results. I.e. making sure that the listing for AirBNB itself ranks higher than companies who make software for AirBNB hosts by boosting the in-document-frequency of the AirBNB token (AKA word) for its official listing. Conceptually it multiples the in-document-importance second value in the tuples of the SPLADE or BM25 sparse vector of the chunk_html innerText for all tokens present in the boost phrase by the boost factor like so: (token, in-document-importance) -> (token, in-document-importance*boost_factor).
+ */
+export type FullTextBoost = {
+    /**
+     * Amount to multiplicatevly increase the frequency of the tokens in the phrase by
+     */
+    boost_factor: number;
+    /**
+     * The phrase to boost in the fulltext document frequency index
+     */
+    phrase: string;
+};
+
 export type GenerateChunksRequest = {
     /**
      * The ids of the chunks to be retrieved and injected into the context window for RAG.
@@ -832,12 +713,21 @@ export type GenerateChunksRequest = {
     temperature?: number | null;
 };
 
+/**
+ * Location that you want to use as the center of the search.
+ */
 export type GeoInfo = {
     lat: GeoTypes;
     lon: GeoTypes;
 };
 
+/**
+ * Location bias lets you rank your results by distance from a location. If not specified, this has no effect. Bias allows you to determine how much of an effect the location of chunks will have on the search results. If not specified, this defaults to 0.0. We recommend setting this to 1.0 for a gentle reranking of the results, >3.0 for a strong reranking of the results.
+ */
 export type GeoInfoWithBias = {
+    /**
+     * Bias lets you specify how much of an effect the location of chunks will have on the search results. If not specified, this defaults to 0.0. We recommend setting this to 1.0 for a gentle reranking of the results, >3.0 for a strong reranking of the results.
+     */
     bias: number;
     location: GeoInfo;
 };
@@ -930,6 +820,37 @@ export type HeadQueryResponse = {
     queries: Array<HeadQueries>;
 };
 
+/**
+ * Highlight Options lets you specify different methods to highlight the chunks in the result set. If not specified, this defaults to the score of the chunks.
+ */
+export type HighlightOptions = {
+    /**
+     * Set highlight_delimiters to a list of strings to use as delimiters for highlighting. If not specified, this defaults to ["?", ",", ".", "!"]. These are the characters that will be used to split the chunk_html into splits for highlighting. These are the characters that will be used to split the chunk_html into splits for highlighting.
+     */
+    highlight_delimiters?: Array<(string)> | null;
+    /**
+     * Set highlight_max_length to control the maximum number of tokens (typically whitespace separated strings, but sometimes also word stems) which can be present within a single highlight. If not specified, this defaults to 8. This is useful to shorten large splits which may have low scores due to length compared to the query. Set to something very large like 100 to highlight entire splits.
+     */
+    highlight_max_length?: number | null;
+    /**
+     * Set highlight_max_num to control the maximum number of highlights per chunk. If not specified, this defaults to 3. It may be less than 3 if no snippets score above the highlight_threshold.
+     */
+    highlight_max_num?: number | null;
+    /**
+     * Set highlight_results to false for a slight latency improvement (1-10ms). If not specified, this defaults to true. This will add `<b><mark>` tags to the chunk_html of the chunks to highlight matching splits and return the highlights on each scored chunk in the response.
+     */
+    highlight_results?: boolean | null;
+    highlight_strategy?: (HighlightStrategy) | null;
+    /**
+     * Set highlight_threshold to a lower or higher value to adjust the sensitivity of the highlights applied to the chunk html. If not specified, this defaults to 0.8. The range is 0.0 to 1.0.
+     */
+    highlight_threshold?: number | null;
+    /**
+     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once.
+     */
+    highlight_window?: number | null;
+};
+
 export type HighlightStrategy = 'exactmatch' | 'v1';
 
 export type InvitationData = {
@@ -953,6 +874,44 @@ export type InvitationData = {
      * The role the user will have in the organization. 0 = User, 1 = Admin, 2 = Owner.
      */
     user_role: number;
+};
+
+/**
+ * LLM options to use for the completion. If not specified, this defaults to the dataset's LLM options.
+ */
+export type LLMOptions = {
+    /**
+     * Completion first decides whether the stream should contain the stream of the completion response or the chunks first. Default is false. Keep in mind that || is used to separate the chunks from the completion response. If || is in the completion then you may want to split on ||{ instead.
+     */
+    completion_first?: boolean | null;
+    /**
+     * Frequency penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim. Default is 0.7.
+     */
+    frequency_penalty?: number | null;
+    /**
+     * The maximum number of tokens to generate in the chat completion. Default is None.
+     */
+    max_tokens?: number | null;
+    /**
+     * Presence penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics. Default is 0.7.
+     */
+    presence_penalty?: number | null;
+    /**
+     * Stop tokens are up to 4 sequences where the API will stop generating further tokens. Default is None.
+     */
+    stop_tokens?: Array<(string)> | null;
+    /**
+     * Whether or not to stream the response. If this is set to true or not included, the response will be a stream. If this is set to false, the response will be a normal JSON response. Default is true.
+     */
+    stream_response?: boolean | null;
+    /**
+     * Optionally, override the system prompt in dataset server settings.
+     */
+    system_prompt?: string | null;
+    /**
+     * What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Default is 0.5.
+     */
+    temperature?: number | null;
 };
 
 export type LatencyGraphResponse = {
@@ -1011,6 +970,9 @@ export type OrganizationUsageCount = {
     user_count: number;
 };
 
+/**
+ * Sort by lets you specify a method to sort the results by. If not specified, this defaults to the score of the chunks. If specified, this can be any key in the chunk metadata. This key must be a numeric value within the payload.
+ */
 export type QdrantSortBy = SortByField | SortBySearchType;
 
 export type QueryCountResponse = {
@@ -1152,7 +1114,10 @@ export type RecommendGroupsResponseBody = {
 
 export type RecommendResponseTypes = RecommendChunksResponseBody | Array<ChunkMetadataWithScore>;
 
-export type RecommendType = 'semantic' | 'full_text';
+/**
+ * The type of recommendation to make. This lets you choose whether to recommend based off of `semantic` or `fulltext` similarity. The default is `semantic`.
+ */
+export type RecommendType = 'semantic' | 'fulltext';
 
 export type RecommendationAnalytics = {
     filter?: (RecommendationAnalyticsFilter) | null;
@@ -1196,6 +1161,9 @@ export type RecommendationEvent = {
     top_score: number;
 };
 
+/**
+ * Strategy to use for recommendations, either "average_vector" or "best_score". The default is "average_vector". The "average_vector" strategy will construct a single average vector from the positive and negative samples then use it to perform a pseudo-search. The "best_score" strategy is more advanced and navigates the HNSW with a heuristic of picking edges where the point is closer to the positive samples than it is the negatives.
+ */
 export type RecommendationStrategy = 'average_vector' | 'best_score';
 
 export type RecommendationType = 'Chunk' | 'Group';
@@ -1224,38 +1192,16 @@ export type RecommendationsWithoutClicksCTRResponse = {
 
 export type RegenerateMessageReqPayload = {
     /**
-     * Completion first decides whether the stream should contain the stream of the completion response or the chunks first. Default is false. Keep in mind that || is used to separate the chunks from the completion response. If || is in the completion then you may want to split on ||{ instead.
-     */
-    completion_first?: boolean | null;
-    /**
      * If concat user messages query is set to true, all of the user messages in the topic will be concatenated together and used as the search query. If not specified, this defaults to false. Default is false.
      */
     concat_user_messages_query?: boolean | null;
     filters?: (ChunkFilter) | null;
-    /**
-     * Frequency penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim. Default is 0.7.
-     */
-    frequency_penalty?: number | null;
-    /**
-     * Whether or not to highlight the citations in the response. If this is set to true or not included, the citations will be highlighted. If this is set to false, the citations will not be highlighted. Default is true.
-     */
-    highlight_citations?: boolean | null;
-    /**
-     * The delimiters to use for highlighting the citations. If this is not included, the default delimiters will be used. Default is `[".", "!", "?", "\n", "\t", ","]`.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * The maximum number of tokens to generate in the chat completion.
-     */
-    max_tokens?: number | null;
+    highlight_options?: (HighlightOptions) | null;
+    llm_options?: (LLMOptions) | null;
     /**
      * Page size is the number of chunks to fetch during RAG. If 0, then no search will be performed. If specified, this will override the N retrievals to include in the dataset configuration. Default is None.
      */
     page_size?: number | null;
-    /**
-     * Presence penalty is a number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
-     */
-    presence_penalty?: number | null;
     /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
@@ -1265,18 +1211,6 @@ export type RegenerateMessageReqPayload = {
      */
     search_query?: string | null;
     search_type?: (SearchMethod) | null;
-    /**
-     * Stop tokens are up to 4 sequences where the API will stop generating further tokens.
-     */
-    stop_tokens?: Array<(string)> | null;
-    /**
-     * Whether or not to stream the response. If this is set to true or not included, the response will be a stream. If this is set to false, the response will be a normal JSON response. Default is true.
-     */
-    stream_response?: boolean | null;
-    /**
-     * What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Default is 0.7.
-     */
-    temperature?: number | null;
     /**
      * The id of the topic to regenerate the last message for.
      */
@@ -1392,32 +1326,7 @@ export type SearchChunksReqPayload = {
      * Get total page count for the query accounting for the applied filters. Defaults to false, but can be set to true when the latency penalty is acceptable (typically 50-200ms).
      */
     get_total_pages?: boolean | null;
-    /**
-     * Set highlight_delimiters to a list of strings to use as delimiters for highlighting. If not specified, this defaults to ["?", ",", ".", "!"]. These are the characters that will be used to split the chunk_html into splits for highlighting. These are the characters that will be used to split the chunk_html into splits for highlighting.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * Set highlight_max_length to control the maximum number of tokens (typically whitespace separated strings, but sometimes also word stems) which can be present within a single highlight. If not specified, this defaults to 8. This is useful to shorten large splits which may have low scores due to length compared to the query. Set to something very large like 100 to highlight entire splits.
-     */
-    highlight_max_length?: number | null;
-    /**
-     * Set highlight_max_num to control the maximum number of highlights per chunk. If not specified, this defaults to 3. It may be less than 3 if no snippets score above the highlight_threshold.
-     */
-    highlight_max_num?: number | null;
-    /**
-     * Set highlight_results to false for a slight latency improvement (1-10ms). If not specified, this defaults to true. This will add `<b><mark>` tags to the chunk_html of the chunks to highlight matching splits and return the highlights on each scored chunk in the response.
-     */
-    highlight_results?: boolean | null;
-    highlight_strategy?: (HighlightStrategy) | null;
-    /**
-     * Set highlight_threshold to a lower or higher value to adjust the sensitivity of the highlights applied to the chunk html. If not specified, this defaults to 0.8. The range is 0.0 to 1.0.
-     */
-    highlight_threshold?: number | null;
-    /**
-     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once.
-     */
-    highlight_window?: number | null;
-    location_bias?: (GeoInfoWithBias) | null;
+    highlight_options?: (HighlightOptions) | null;
     /**
      * Page of chunks to fetch. Page is 1-indexed.
      */
@@ -1431,6 +1340,10 @@ export type SearchChunksReqPayload = {
      */
     query: string;
     /**
+     * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be preserved.
+     */
+    remove_stop_words?: boolean | null;
+    /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
     score_threshold?: number | null;
@@ -1439,21 +1352,11 @@ export type SearchChunksReqPayload = {
      * Set slim_chunks to true to avoid returning the content and chunk_html of the chunks. This is useful for when you want to reduce amount of data over the wire for latency improvement (typically 10-50ms). Default is false.
      */
     slim_chunks?: boolean | null;
-    sort_by?: (QdrantSortBy) | null;
-    /**
-     * Tag weights is a JSON object which can be used to boost the ranking of chunks with certain tags. This is useful for when you want to be able to bias towards chunks with a certain tag on the fly. The keys are the tag names and the values are the weights.
-     */
-    tag_weights?: {
-        [key: string]: (number);
-    } | null;
+    sort_options?: (SortOptions) | null;
     /**
      * If true, quoted and - prefixed words will be parsed from the queries and used as required and negated words respectively. Default is false.
      */
     use_quote_negated_terms?: boolean | null;
-    /**
-     * Set use_weights to true to use the weights of the chunks in the result set in order to sort them. If not specified, this defaults to true.
-     */
-    use_weights?: boolean | null;
 };
 
 export type SearchClusterResponse = {
@@ -1488,31 +1391,7 @@ export type SearchOverGroupsReqPayload = {
      * Group_size is the number of chunks to fetch for each group. The default is 3. If a group has less than group_size chunks, all chunks will be returned. If this is set to a large number, we recommend setting slim_chunks to true to avoid returning the content and chunk_html of the chunks so as to lower the amount of time required for content download and serialization.
      */
     group_size?: number | null;
-    /**
-     * Set highlight_delimiters to a list of strings to use as delimiters for highlighting. If not specified, this defaults to ["?", ",", ".", "!"]. These are the characters that will be used to split the chunk_html into splits for highlighting.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * Set highlight_max_length to control the maximum number of tokens (typically whitespace separated strings, but sometimes also word stems) which can be present within a single highlight. If not specified, this defaults to 8. This is useful to shorten large splits which may have low scores due to length compared to the query. Set to something very large like 100 to highlight entire splits.
-     */
-    highlight_max_length?: number | null;
-    /**
-     * Set highlight_max_num to control the maximum number of highlights per chunk. If not specified, this defaults to 3. It may be less than 3 if no snippets score above the highlight_threshold.
-     */
-    highlight_max_num?: number | null;
-    /**
-     * Set highlight_results to false for a slight latency improvement (1-10ms). If not specified, this defaults to true. This will add `<b><mark>` tags to the chunk_html of the chunks to highlight matching splits and return the highlights on each scored chunk in the response.
-     */
-    highlight_results?: boolean | null;
-    highlight_strategy?: (HighlightStrategy) | null;
-    /**
-     * Set highlight_threshold to a lower or higher value to adjust the sensitivity of the highlights applied to the chunk html. If not specified, this defaults to 0.8. The range is 0.0 to 1.0.
-     */
-    highlight_threshold?: number | null;
-    /**
-     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once.
-     */
-    highlight_window?: number | null;
+    highlight_options?: (HighlightOptions) | null;
     /**
      * Page of group results to fetch. Page is 1-indexed.
      */
@@ -1525,6 +1404,11 @@ export type SearchOverGroupsReqPayload = {
      * Query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
      */
     query: string;
+    /**
+     * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be
+     * preserved.
+     */
+    remove_stop_words?: boolean | null;
     /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
@@ -1625,32 +1509,7 @@ export type SearchWithinGroupReqPayload = {
      * Group_tracking_id specifies the group to search within by tracking id. Results will only consist of chunks which are bookmarks within the specified group. If both group_id and group_tracking_id are provided, group_id will be used.
      */
     group_tracking_id?: string | null;
-    /**
-     * Set highlight_delimiters to a list of strings to use as delimiters for highlighting. If not specified, this defaults to ["?", ",", ".", "!"]. These are the characters that will be used to split the chunk_html into splits for highlighting.
-     */
-    highlight_delimiters?: Array<(string)> | null;
-    /**
-     * Set highlight_max_length to control the maximum number of tokens (typically whitespace separated strings, but sometimes also word stems) which can be present within a single highlight. If not specified, this defaults to 8. This is useful to shorten large splits which may have low scores due to length compared to the query. Set to something very large like 100 to highlight entire splits.
-     */
-    highlight_max_length?: number | null;
-    /**
-     * Set highlight_max_num to control the maximum number of highlights per chunk. If not specified, this defaults to 3. It may be less than 3 if no snippets score above the highlight_threshold.
-     */
-    highlight_max_num?: number | null;
-    /**
-     * Set highlight_results to false for a slight latency improvement (1-10ms). If not specified, this defaults to true. This will add `<b><mark>` tags to the chunk_html of the chunks to highlight matching splits and return the highlights on each scored chunk in the response.
-     */
-    highlight_results?: boolean | null;
-    highlight_strategy?: (HighlightStrategy) | null;
-    /**
-     * Set highlight_threshold to a lower or higher value to adjust the sensitivity of the highlights applied to the chunk html. If not specified, this defaults to 0.8. The range is 0.0 to 1.0.
-     */
-    highlight_threshold?: number | null;
-    /**
-     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once.
-     */
-    highlight_window?: number | null;
-    location_bias?: (GeoInfoWithBias) | null;
+    highlight_options?: (HighlightOptions) | null;
     /**
      * The page of chunks to fetch. Page is 1-indexed.
      */
@@ -1663,7 +1522,10 @@ export type SearchWithinGroupReqPayload = {
      * The query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
      */
     query: string;
-    rerank_by?: (ReRankOptions) | null;
+    /**
+     * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be preserved.
+     */
+    remove_stop_words?: boolean | null;
     /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
@@ -1673,21 +1535,11 @@ export type SearchWithinGroupReqPayload = {
      * Set slim_chunks to true to avoid returning the content and chunk_html of the chunks. This is useful for when you want to reduce amount of data over the wire for latency improvement (typicall 10-50ms). Default is false.
      */
     slim_chunks?: boolean | null;
-    sort_by?: (QdrantSortBy) | null;
-    /**
-     * Tag weights is a JSON object which can be used to boost the ranking of chunks with certain tags. This is useful for when you want to be able to bias towards chunks with a certain tag on the fly. The keys are the tag names and the values are the weights.
-     */
-    tag_weights?: {
-        [key: string]: (number);
-    } | null;
+    sort_options?: (SortOptions) | null;
     /**
      * If true, quoted and - prefixed words will be parsed from the queries and used as required and negated words respectively. Default is false.
      */
     use_quote_negated_terms?: boolean | null;
-    /**
-     * Set use_weights to true to use the weights of the chunks in the result set in order to sort them. If not specified, this defaults to true.
-     */
-    use_weights?: boolean | null;
 };
 
 export type SearchWithinGroupResponseBody = {
@@ -1700,6 +1552,20 @@ export type SearchWithinGroupResults = {
     bookmarks: Array<ScoreChunkDTO>;
     group: ChunkGroupAndFileId;
     total_pages: number;
+};
+
+/**
+ * Distance phrase is useful for moving the embedding vector of the chunk in the direction of the distance phrase. I.e. you can push a chunk with a chunk_html of "iphone" 25% closer to the term "flagship" by using the distance phrase "flagship" and a distance factor of 0.25. Conceptually it's drawing a line (euclidean/L2 distance) between the vector for the innerText of the chunk_html and distance_phrase then moving the vector of the chunk_html distance_factor*L2Distance closer to or away from the distance_phrase point along the line between the two points.
+ */
+export type SemanticBoost = {
+    /**
+     * Amount to multiplicatevly increase the frequency of the tokens in the phrase by
+     */
+    distance_factor: number;
+    /**
+     * The phrase to boost in the fulltext document frequency index
+     */
+    phrase: string;
 };
 
 export type SetUserApiKeyRequest = {
@@ -1815,6 +1681,24 @@ export type SortBySearchType = {
      */
     rerank_query?: string | null;
     rerank_type: ReRankOptions;
+};
+
+/**
+ * Sort Options lets you specify different methods to rerank the chunks in the result set. If not specified, this defaults to the score of the chunks.
+ */
+export type SortOptions = {
+    location_bias?: (GeoInfoWithBias) | null;
+    sort_by?: (QdrantSortBy) | null;
+    /**
+     * Tag weights is a JSON object which can be used to boost the ranking of chunks with certain tags. This is useful for when you want to be able to bias towards chunks with a certain tag on the fly. The keys are the tag names and the values are the weights.
+     */
+    tag_weights?: {
+        [key: string]: (number);
+    } | null;
+    /**
+     * Set use_weights to true to use the weights of the chunks in the result set in order to sort them. If not specified, this defaults to true.
+     */
+    use_weights?: boolean | null;
 };
 
 export type SortOrder = 'desc' | 'asc';
@@ -1947,7 +1831,7 @@ export type UpdateChunkGroupReqPayload = {
 };
 
 export type UpdateChunkReqPayload = {
-    boost_phrase?: (BoostPhrase) | null;
+    boost_phrase?: (FullTextBoost) | null;
     /**
      * HTML content of the chunk you want to update. This can also be plaintext. The innerText of the HTML will be used to create the embedding vector. The point of using HTML is for convienience, as some users have applications where users submit HTML content. If no chunk_html is provided, the existing chunk_html will be used.
      */
@@ -1960,7 +1844,7 @@ export type UpdateChunkReqPayload = {
      * Convert HTML to raw text before processing to avoid adding noise to the vector embeddings. By default this is true. If you are using HTML content that you want to be included in the vector embeddings, set this to false.
      */
     convert_html_to_text?: boolean | null;
-    distance_phrase?: (DistancePhrase) | null;
+    distance_phrase?: (SemanticBoost) | null;
     /**
      * Group ids are the ids of the groups that the chunk should be placed into. This is useful for when you want to update a chunk and add it to a group or multiple groups in one request.
      */
