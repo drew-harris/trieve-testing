@@ -1,11 +1,11 @@
 import { DATASET_ID, formatDateForApi, trieve } from "./trieve";
 
-const result = await trieve.fetch<"eject">("/api/analytics/search", "post", {
+const result = await trieve.fetch<"eject">("/api/analytics/rag", "post", {
   requestBody: {
-    type: "search_usage_graph",
+    type: "rag_usage_graph",
     filter: {
       date_range: {
-        // 14 days ago
+        // 5 mins ago
         gt: formatDateForApi(new Date(Date.now() - 5 * 60 * 1000)),
       },
     },

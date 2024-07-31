@@ -138,6 +138,7 @@ export class Trieve {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    // console.log(await response.text());
     return response.json();
   }
 }
