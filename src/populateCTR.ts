@@ -15,8 +15,24 @@ const DATASET_ID = "c65a2dd7-298e-48e6-ac90-e336ccbbe74f";
 for (let i = 0; i < 20; i++) {
   const results = (await trieve.fetch("/api/chunk/search", "post", {
     requestBody: {
-      query: "listen",
+      query: "create chunk group",
       search_type: "fulltext",
+      extend_results: true,
+      highlight_delimiters: ["?", ",", ".", "!", "\n"],
+      score_threshold: 0.2,
+      filters: {
+        must_not: [
+          {
+            field: "tag_set",
+            match: ["code"],
+          },
+        ],
+      },
+      highlight_window: 10,
+      highlight_max_num: 1,
+      highlight_max_length: 6,
+      highlight_strategy: "exactmatch",
+      page_size: 20,
     },
     xApiVersion: "V2",
     trDataset: DATASET_ID,

@@ -298,6 +298,10 @@ export type ChunkReqPayload = {
     num_value?: number | null;
     semantic_boost?: (SemanticBoost) | null;
     /**
+     * If semantic_content is present, it will be used for creating semantic embeddings instead of the innerText `chunk_html`. `chunk_html` will still be the only thing stored and always used for fulltext functionality.
+     */
+    semantic_content?: string | null;
+    /**
      * Split avg is a boolean which tells the server to split the text in the chunk_html into smaller chunks and average their resulting vectors. This is useful for when you want to create a chunk from a large piece of text and want to split it into smaller chunks to create a more fuzzy average dense vector. The sparse vector will be generated normally with no averaging. By default this is false.
      */
     split_avg?: boolean | null;
@@ -1831,7 +1835,6 @@ export type UpdateChunkGroupReqPayload = {
 };
 
 export type UpdateChunkReqPayload = {
-    boost_phrase?: (FullTextBoost) | null;
     /**
      * HTML content of the chunk you want to update. This can also be plaintext. The innerText of the HTML will be used to create the embedding vector. The point of using HTML is for convienience, as some users have applications where users submit HTML content. If no chunk_html is provided, the existing chunk_html will be used.
      */
@@ -1844,7 +1847,7 @@ export type UpdateChunkReqPayload = {
      * Convert HTML to raw text before processing to avoid adding noise to the vector embeddings. By default this is true. If you are using HTML content that you want to be included in the vector embeddings, set this to false.
      */
     convert_html_to_text?: boolean | null;
-    distance_phrase?: (SemanticBoost) | null;
+    fulltext_boost?: (FullTextBoost) | null;
     /**
      * Group ids are the ids of the groups that the chunk should be placed into. This is useful for when you want to update a chunk and add it to a group or multiple groups in one request.
      */
@@ -1870,6 +1873,7 @@ export type UpdateChunkReqPayload = {
      * Num value is an arbitrary numerical value that can be used to filter chunks. This is useful for when you want to filter chunks by numerical value. If no num_value is provided, the existing num_value will be used.
      */
     num_value?: number | null;
+    semantic_boost?: (SemanticBoost) | null;
     /**
      * Tag set is a list of tags. This can be used to filter chunks by tag. Unlike with metadata filtering, HNSW indices will exist for each tag such that there is not a performance hit for filtering on them. If no tag_set is provided, the existing tag_set will be used.
      */
