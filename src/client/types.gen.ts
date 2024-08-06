@@ -368,10 +368,7 @@ export type CountChunksReqPayload = {
      * Set limit to restrict the maximum number of chunks to count. This is useful for when you want to reduce the latency of the count operation. By default the limit will be the number of chunks in the dataset.
      */
     limit?: number | null;
-    /**
-     * Query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
-     */
-    query: string;
+    query: QueryTypes;
     /**
      * Set score_threshold to a float to filter out chunks with a score below the threshold. This threshold applies before weight and bias modifications. If not specified, this defaults to 0.0.
      */
@@ -400,10 +397,7 @@ export type CreateDatasetRequest = {
      * Organization ID that the dataset will belong to.
      */
     organization_id: string;
-    /**
-     * The configuration of the dataset. See the example request payload for the potential keys which can be set. It is possible to break your dataset's functionality by erroneously setting this field. We recommend setting through creating a dataset at dashboard.trieve.ai and managing it's settings there.
-     */
-    server_configuration?: unknown;
+    server_configuration?: (DatasetConfigurationDTO) | null;
     /**
      * Optional tracking ID for the dataset. Can be used to track the dataset in external systems. Must be unique within the organization. Strongly recommended to not use a valid uuid value as that will not work with the TR-Dataset header.
      */
@@ -521,6 +515,112 @@ export type DatasetAndUsage = {
     dataset_usage: DatasetUsageCount;
 };
 
+/**
+ * Lets you specify the configuration for a dataset
+ */
+export type DatasetConfigurationDTO = {
+    /**
+     * The average length of the chunks in the index for BM25
+     */
+    BM25_AVG_LEN?: number | null;
+    /**
+     * The BM25 B parameter
+     */
+    BM25_B?: number | null;
+    /**
+     * Whether to use BM25
+     */
+    BM25_ENABLED?: boolean | null;
+    /**
+     * The BM25 K parameter
+     */
+    BM25_K?: number | null;
+    /**
+     * The base URL for the embedding API
+     */
+    EMBEDDING_BASE_URL?: string | null;
+    /**
+     * The name of the embedding model to use
+     */
+    EMBEDDING_MODEL_NAME?: string | null;
+    /**
+     * The prefix to use for the embedding query
+     */
+    EMBEDDING_QUERY_PREFIX?: string | null;
+    /**
+     * The size of the embeddings
+     */
+    EMBEDDING_SIZE?: number | null;
+    /**
+     * The frequency penalty to use
+     */
+    FREQUENCY_PENALTY?: number | null;
+    /**
+     * Whether to use fulltext search
+     */
+    FULLTEXT_ENABLED?: boolean | null;
+    /**
+     * Whether to only use indexed chunks
+     */
+    INDEXED_ONLY?: boolean | null;
+    /**
+     * The base URL for the LLM API
+     */
+    LLM_BASE_URL?: string | null;
+    /**
+     * The default model to use for the LLM
+     */
+    LLM_DEFAULT_MODEL?: string | null;
+    /**
+     * Whether the dataset is locked to prevent changes or deletion
+     */
+    LOCKED?: boolean | null;
+    /**
+     * The maximum limit for the number of chunks for counting
+     */
+    MAX_LIMIT?: number | null;
+    /**
+     * The prompt to use for converting a message to a query
+     */
+    MESSAGE_TO_QUERY_PROMPT?: string | null;
+    /**
+     * The number of retrievals to include with the RAG model
+     */
+    N_RETRIEVALS_TO_INCLUDE?: number | null;
+    /**
+     * The presence penalty to use
+     */
+    PRESENCE_PENALTY?: number | null;
+    /**
+     * The prompt to use for the RAG model
+     */
+    RAG_PROMPT?: string | null;
+    /**
+     * The base URL for the reranker API
+     */
+    RERANKER_BASE_URL?: string | null;
+    /**
+     * Whether to use semantic search
+     */
+    SEMANTIC_ENABLED?: boolean | null;
+    /**
+     * The stop tokens to use
+     */
+    STOP_TOKENS?: Array<(string)> | null;
+    /**
+     * The system prompt to use for the LLM
+     */
+    SYSTEM_PROMPT?: string | null;
+    /**
+     * The temperature to use
+     */
+    TEMPERATURE?: number | null;
+    /**
+     * Whether to use the message to query prompt
+     */
+    USE_MESSAGE_TO_QUERY_PROMPT?: boolean | null;
+};
+
 export type DatasetDTO = {
     created_at: string;
     id: string;
@@ -601,16 +701,8 @@ export type ErrorResponseBody = {
     message: string;
 };
 
-export type Event = {
-    created_at: string;
-    dataset_id: string;
-    event_data: string;
-    event_type: string;
-    id: string;
-};
-
 export type EventReturn = {
-    events: Array<Event>;
+    events: Array<WorkerEvent>;
     page_count: number;
 };
 
@@ -850,7 +942,7 @@ export type HighlightOptions = {
      */
     highlight_threshold?: number | null;
     /**
-     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once.
+     * Set highlight_window to a number to control the amount of words that are returned around the matched phrases. If not specified, this defaults to 0. This is useful for when you want to show more context around the matched words. When specified, window/2 whitespace separated words are added before and after each highlight in the response's highlights array. If an extended highlight overlaps with another highlight, the overlapping words are only included once. This parameter can be overriden to respect the highlight_max_length param.
      */
     highlight_window?: number | null;
 };
@@ -953,6 +1045,20 @@ export type Message = {
     updated_at: string;
 };
 
+/**
+ * MultiQuery allows you to construct a dense vector from multiple queries with a weighted sum. This is useful for when you want to emphasize certain features of the query. This only works with Semantic Search and is not compatible with cross encoder re-ranking or highlights.
+ */
+export type MultiQuery = {
+    /**
+     * Query to embed for the final weighted sum vector.
+     */
+    query: string;
+    /**
+     * Float value which is applies as a multiplier to the query vector when summing.
+     */
+    weight: number;
+};
+
 export type NewChunkMetadataTypes = SlimChunkMetadataWithArrayTagSet | ChunkMetadata | ContentChunkMetadata;
 
 export type Organization = {
@@ -983,6 +1089,11 @@ export type QueryCountResponse = {
     total_queries: Array<SearchTypeCount>;
 };
 
+/**
+ * Query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.  You can either provide one query, or multiple with weights. Multi-query only works with Semantic Search and is not compatible with cross encoder re-ranking or highlights.
+ */
+export type QueryTypes = string | Array<MultiQuery>;
+
 export type RAGAnalytics = {
     filter?: (RAGAnalyticsFilter) | null;
     page?: number | null;
@@ -992,6 +1103,10 @@ export type RAGAnalytics = {
 } | {
     filter?: (RAGAnalyticsFilter) | null;
     type: 'rag_usage';
+} | {
+    filter?: (RAGAnalyticsFilter) | null;
+    granularity?: (Granularity) | null;
+    type: 'rag_usage_graph';
 };
 
 export type type3 = 'rag_queries';
@@ -1001,16 +1116,16 @@ export type RAGAnalyticsFilter = {
     rag_type?: (RagTypes) | null;
 };
 
-export type RAGAnalyticsResponse = RagQueryResponse | RAGUsageResponse;
+export type RAGAnalyticsResponse = RagQueryResponse | RAGUsageResponse | RAGUsageGraphResponse;
 
 export type RAGSortBy = 'created_at' | 'latency';
 
-export type RAGUsageResponse = {
-    total_queries: number;
+export type RAGUsageGraphResponse = {
+    usage_points: Array<UsageGraphPoint>;
 };
 
-export type RPSGraphResponse = {
-    rps_points: Array<SearchRPSGraph>;
+export type RAGUsageResponse = {
+    total_queries: number;
 };
 
 export type RagQueryEvent = {
@@ -1037,6 +1152,12 @@ export type Range = {
 };
 
 export type RangeCondition = number;
+
+export type RateQueryRequest = {
+    note?: string | null;
+    query_id: string;
+    rating: number;
+};
 
 export type ReRankOptions = 'semantic' | 'fulltext' | 'cross_encoder';
 
@@ -1160,8 +1281,8 @@ export type RecommendationEvent = {
     positive_ids: Array<(string)>;
     positive_tracking_ids: Array<(string)>;
     recommendation_type: string;
-    request_params: string;
-    results: Array<SearchResultType>;
+    request_params: unknown;
+    results: Array<unknown>;
     top_score: number;
 };
 
@@ -1268,7 +1389,7 @@ export type SearchAnalytics = {
 } | {
     filter?: (SearchAnalyticsFilter) | null;
     granularity?: (Granularity) | null;
-    type: 'rps_graph';
+    type: 'search_usage_graph';
 } | {
     filter?: (SearchAnalyticsFilter) | null;
     type: 'search_metrics';
@@ -1307,7 +1428,7 @@ export type SearchAnalyticsFilter = {
     search_type?: (SearchType) | null;
 };
 
-export type SearchAnalyticsResponse = LatencyGraphResponse | RPSGraphResponse | DatasetAnalytics | HeadQueryResponse | SearchQueryResponse | QueryCountResponse | SearchQueryEvent;
+export type SearchAnalyticsResponse = LatencyGraphResponse | SearchUsageGraphResponse | DatasetAnalytics | HeadQueryResponse | SearchQueryResponse | QueryCountResponse | SearchQueryEvent;
 
 export type SearchCTRMetrics = {
     avg_position_of_click: number;
@@ -1339,10 +1460,7 @@ export type SearchChunksReqPayload = {
      * Page size is the number of chunks to fetch. This can be used to fetch more than 10 chunks at a time.
      */
     page_size?: number | null;
-    /**
-     * Query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
-     */
-    query: string;
+    query: QueryTypes;
     /**
      * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be preserved.
      */
@@ -1404,10 +1522,7 @@ export type SearchOverGroupsReqPayload = {
      * Page size is the number of group results to fetch. The default is 10.
      */
     page_size?: number | null;
-    /**
-     * Query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
-     */
-    query: string;
+    query: QueryTypes;
     /**
      * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be
      * preserved.
@@ -1460,19 +1575,15 @@ export type SearchQueryEvent = {
     id: string;
     latency: number;
     query: string;
-    request_params: string;
-    results: Array<SearchResultType>;
+    query_rating: string;
+    request_params: unknown;
+    results: Array<unknown>;
     search_type: string;
     top_score: number;
 };
 
 export type SearchQueryResponse = {
     queries: Array<SearchQueryEvent>;
-};
-
-export type SearchRPSGraph = {
-    average_rps: number;
-    time_stamp: string;
 };
 
 export type SearchResponseBody = {
@@ -1493,6 +1604,10 @@ export type SearchTypeCount = {
     search_count: number;
     search_method: string;
     search_type: string;
+};
+
+export type SearchUsageGraphResponse = {
+    usage_points: Array<UsageGraphPoint>;
 };
 
 export type SearchWithinGroupReqPayload = {
@@ -1522,10 +1637,7 @@ export type SearchWithinGroupReqPayload = {
      * The page size is the number of chunks to fetch. This can be used to fetch more than 10 chunks at a time.
      */
     page_size?: number | null;
-    /**
-     * The query is the search query. This can be any string. The query will be used to create an embedding vector and/or SPLADE vector which will be used to find the result set.
-     */
-    query: string;
+    query: QueryTypes;
     /**
      * If true, stop words (specified in server/src/stop-words.txt in the git repo) will be removed. Queries that are entirely stop words will be preserved.
      */
@@ -1905,10 +2017,7 @@ export type UpdateDatasetRequest = {
      * Optional new tracking ID for the dataset. Can be used to track the dataset in external systems. Must be unique within the organization. If not provided, the tracking ID will not be updated. Strongly recommended to not use a valid uuid value as that will not work with the TR-Dataset header.
      */
     new_tracking_id?: string | null;
-    /**
-     * The configuration of the dataset. See the example request payload for the potential keys which can be set. It is possible to break your dataset's functionality by erroneously updating this field. We recommend updating through the settings panel for your dataset at dashboard.trieve.ai.
-     */
-    server_configuration?: unknown;
+    server_configuration?: (DatasetConfigurationDTO) | null;
     /**
      * The tracking ID of the dataset you want to update.
      */
@@ -2030,6 +2139,11 @@ export type UploadFileResult = {
     file_metadata: File;
 };
 
+export type UsageGraphPoint = {
+    requests: number;
+    time_stamp: string;
+};
+
 export type UserOrganization = {
     created_at: string;
     id: string;
@@ -2037,6 +2151,14 @@ export type UserOrganization = {
     role: number;
     updated_at: string;
     user_id: string;
+};
+
+export type WorkerEvent = {
+    created_at: string;
+    dataset_id: string;
+    event_data: string;
+    event_type: string;
+    id: string;
 };
 
 export type GetCtrAnalyticsData = {
@@ -2103,6 +2225,19 @@ export type GetSearchAnalyticsData = {
 };
 
 export type GetSearchAnalyticsResponse = SearchAnalyticsResponse;
+
+export type SetQueryRatingData = {
+    /**
+     * JSON request payload to rate a query
+     */
+    requestBody: RateQueryRequest;
+    /**
+     * The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid.
+     */
+    trDataset: string;
+};
+
+export type SetQueryRatingResponse = void;
 
 export type GetClusterAnalyticsData = {
     /**
@@ -3211,6 +3346,19 @@ export type $OpenApiTs = {
                 200: SearchAnalyticsResponse;
                 /**
                  * Service error relating to getting search analytics
+                 */
+                400: ErrorResponseBody;
+            };
+        };
+        put: {
+            req: SetQueryRatingData;
+            res: {
+                /**
+                 * The query was successfully rated
+                 */
+                204: void;
+                /**
+                 * Service error relating to rating a query
                  */
                 400: ErrorResponseBody;
             };
